@@ -1,13 +1,93 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.TreeView?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.text.Font?>
+<?import javafx.scene.text.Text?>
 
-
-<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1">
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="720.0" prefWidth="1080.0" style="-fx-background-color: #14141C;" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.Controller">
    <children>
-      <Button layoutX="274.0" layoutY="14.0" mnemonicParsing="false" text="Button" />
-      <Button layoutX="14.0" layoutY="188.0" mnemonicParsing="false" text="Button" />
-      <Button layoutX="534.0" layoutY="188.0" mnemonicParsing="false" text="Button" />
+      <Pane layoutX="71.0" layoutY="65.0" prefHeight="592.0" prefWidth="952.0" style="-fx-background-color: rgb(30, 30, 47, 1); -fx-background-radius: 8;">
+         <children>
+            <ImageView fitHeight="34.0" fitWidth="125.0" layoutX="24.0" layoutY="24.0" pickOnBounds="true" preserveRatio="true">
+               <image>
+                  <Image url="@nexlaunchlogofull.png" />
+               </image>
+            </ImageView>
+            <Button layoutX="899.0" layoutY="24.0" mnemonicParsing="false" prefHeight="34.0" prefWidth="0.0" style="-fx-background-color: none;">
+               <font>
+                  <Font name="Albert Sans Regular" size="12.0" />
+               </font>
+               <graphic>
+                  <ImageView fitHeight="26.0" fitWidth="23.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@settingsicon.png" />
+                     </image>
+                  </ImageView>
+               </graphic>
+               <opaqueInsets>
+                  <Insets />
+               </opaqueInsets>
+            </Button>
+            <Pane layoutX="28.0" layoutY="76.0" prefHeight="492.0" prefWidth="571.0" style="-fx-background-color: rgb(42, 42, 61, 1); -fx-background-radius: 8;">
+               <children>
+                  <Button layoutX="512.0" layoutY="433.0" mnemonicParsing="false" onAction="#showAddMenu" prefHeight="45.0" prefWidth="45.0" style="-fx-background-color: rgb(79, 143, 255, 1); -fx-background-radius: 2000;">
+                     <graphic>
+                        <ImageView fitHeight="15.31" fitWidth="16.33" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@addicon.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                  </Button>
+                  <Text fill="#d8d8d8" layoutX="224.0" layoutY="33.0" strokeType="OUTSIDE" strokeWidth="0.0" text="All Launchers">
+                     <font>
+                        <Font name="Albert Sans SemiBold" size="20.0" />
+                     </font>
+                  </Text>
+                  <TreeView fx:id="AllLaunchersTreeView" layoutX="13.0" layoutY="100.0" onContextMenuRequested="#selectItem" onMouseClicked="#selectItem" prefHeight="326.0" prefWidth="546.0" showRoot="false" />
+                  <TextField layoutX="14.0" layoutY="62.0" promptText="Search">
+                     <font>
+                        <Font name="Albert Sans Regular" size="14.0" />
+                     </font>
+                  </TextField>
+                  <Button layoutX="201.0" layoutY="61.0" mnemonicParsing="false" prefHeight="28.0" prefWidth="30.0" style="-fx-background-color: rgba(79, 143, 255, 1);">
+                     <graphic>
+                        <ImageView fitHeight="13.0" fitWidth="13.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@searchicon.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                  </Button>
+               </children></Pane>
+            <Pane layoutX="631.0" layoutY="76.0" prefHeight="226.0" prefWidth="297.0" style="-fx-background-color: rgb(42, 42, 61, 1); -fx-background-radius: 8;">
+               <children>
+                  <Text fill="#d8d8d8" layoutX="65.0" layoutY="33.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Startup Launchers">
+                     <font>
+                        <Font name="Albert Sans SemiBold" size="20.0" />
+                     </font>
+                  </Text>
+               </children></Pane>
+            <Pane layoutX="631.0" layoutY="334.0" prefHeight="234.0" prefWidth="297.0" style="-fx-background-color: rgb(42, 42, 61, 1); -fx-background-radius: 8;">
+               <children>
+                  <Text fill="#d8d8d8" layoutX="66.0" layoutY="33.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Pinned Launchers">
+                     <font>
+                        <Font name="Albert Sans SemiBold" size="20.0" />
+                     </font>
+                  </Text>
+               </children>
+            </Pane>
+         </children>
+         <padding>
+            <Insets bottom="24.0" left="24.0" right="24.0" top="24.0" />
+         </padding>
+      </Pane>
    </children>
 </AnchorPane>

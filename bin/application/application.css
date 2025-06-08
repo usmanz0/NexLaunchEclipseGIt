@@ -1,1 +1,46 @@
 /* JavaFX CSS - Leave this comment until you have at least create one rule which uses -fx-Property */
+.root {
+
+}
+
+.tree-view {
+    -fx-background-color: transparent;
+
+}
+
+.tree-cell {
+    -fx-background-color: rgba(42, 42, 61, 1); /* Default background for unselected cells */
+    -fx-text-fill: rgba(255, 255, 255, 1); /* Light text color for contrast */
+    -fx-border-color: transparent;
+    -fx-background-radius: 8px;
+    -fx-padding: 18px 13px;
+    -fx-font-size: 14px;
+}
+
+.tree-cell:hover {
+    -fx-background-color: rgba(67, 67, 97, 1); 
+    -fx-text-fill: rgba(255, 255, 255, 1);
+}
+
+.tree-cell .tree-disclosure-node .arrow {
+    -fx-background-color: #E0E0E0; /* Change arrow color to light */
+}
+.tree-cell .tree-disclosure-node {
+    -fx-background-color: transparent; /* Ensure disclosure node background is transparent */
+}
+
+.tree-view:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent; /* For a faint secondary focus color */
+    -fx-outer-border: transparent;      /* Important for some controls */
+    -fx-border-color: transparent;      /* Explicitly remove border on focus too */
+    -fx-border-width: 0;
+}
+.tree-cell:selected:focused {
+    /* Remove any focus border from the selected cell */
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-outer-border: transparent;
+    -fx-border-color: transparent;
+
+}

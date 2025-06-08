@@ -19,22 +19,30 @@ import javafx.scene.text.Text;
 
 public class Main extends Application {
 
+	 @Override
+	 public void start(Stage primaryStage) {
+		 try {
+			  Parent root = FXMLLoader.load(getClass().getResource("/Main.fxml"));
+
+			  Scene scene = new Scene(root,1080,720,Color.rgb(18, 18, 18, 1));
+			  Stage stage = new Stage();
+			  Image icon = new Image("nexlaunchlogo.png");
+			  scene.getStylesheets().add(getClass().getResource("application.css").toExternalForm());
+			  
+			  stage.getIcons().add(icon);
+			  stage.setTitle("NexLaunch");
+			  
+			  
+			  
+			  stage.setScene(scene);
+			  stage.show();
+		 } catch(Exception e) {
+			 e.printStackTrace();
+		 } 
+	 }
 	 
 	 public static void main(String[] args) {
-	  launch(args);
-	 }
+		  launch(args);
+		 }
 
-	 @Override
-	 public void start(Stage primaryStage) throws Exception {
-	  Parent root = FXMLLoader.load(getClass().getResource("/Main.fxml"));
-
-	  Scene scene = new Scene(root,1080,720,Color.rgb(18, 18, 18, 1));
-	  Stage stage = new Stage();
-	  Image icon = new Image("nexlaunchlogo.png");
-	  stage.getIcons().add(icon);
-	  stage.setTitle("NexLaunch");
-	  
-	  stage.setScene(scene);
-	  stage.show();
-	 }
 	}
