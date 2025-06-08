@@ -5,7 +5,6 @@
 
 .tree-view {
     -fx-background-color: transparent;
-
 }
 
 .tree-cell {
@@ -15,6 +14,17 @@
     -fx-background-radius: 8px;
     -fx-padding: 18px 13px;
     -fx-font-size: 14px;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.custom-tree-cell-content,
+.label {
+	-fx-text-fill: rgba(255, 255, 255, 1);
+	-fx-alignment: CENTER_LEFT;
+}
+
+.tree-cell .custom-tree-cell-content {
+	-fx-alignment: CENTER_LEFT;
 }
 
 .tree-cell:hover {
@@ -44,3 +54,61 @@
     -fx-border-color: transparent;
 
 }
+
+
+.launch-button {
+    -fx-background-color: #007bff;
+    -fx-text-fill: white; /* Make sure button text is also white */
+    -fx-font-size: 14px;
+    -fx-padding: 10px 14px;
+    -fx-background-radius: 32px;
+    -fx-cursor: hand;
+}
+
+/* --- Styles for your CUSTOM ARROW BUTTON ONLY --- */
+.custom-arrow-button {
+    -fx-background-color: transparent; /* Removes the solid background */
+    -fx-border-color: transparent;     /* Ensures no default border is visible */
+    -fx-padding: 0;                    /* Removes any internal padding around the graphic */
+    -fx-background-radius: 0;          /* Removes any rounding on the background */
+    -fx-cursor: hand;                  /* Changes cursor to a hand on hover */
+    -fx-graphic-text-gap: 0;           /* Removes gap between graphic (image) and text if any */
+}
+
+/* Optional: Style for when the custom arrow button is hovered */
+.custom-arrow-button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.1); /* Subtle white translucent background on hover */
+    -fx-background-radius: 50%; /* Makes the hover background round */
+}
+
+.scroll-bar {
+    -fx-background-color: transparent; /* Main scrollbar area background */
+    -fx-padding: 2px; /* Adds a small margin around the entire scrollbar */
+}
+
+/* General properties for the track (the background line where the thumb moves) */
+.scroll-bar .track {
+    -fx-background-color: rgba(50, 50, 70, 0.5); /* Dark, slightly transparent background for the track */
+    -fx-background-radius: 5px; /* Rounded corners for the track */
+    -fx-border-color: transparent;
+}
+
+/* The thumb (the draggable part) */
+.scroll-bar .thumb {
+    -fx-background-color: rgba(100, 100, 120, 0.8); /* Darker, slightly transparent thumb */
+    -fx-background-insets: 0;
+    -fx-background-radius: 5px; /* Rounded corners for the thumb */
+    -fx-transition: background-color 0.2s ease; /* Smooth transition on hover/press */
+}
+
+/* Thumb hover state */
+.scroll-bar .thumb:hover {
+    -fx-background-color: rgba(130, 130, 150, 0.9); /* Lighter on hover */
+}
+
+/* Thumb pressed state */
+.scroll-bar .thumb:pressed {
+    -fx-background-color: rgba(150, 150, 170, 1); /* Even lighter when pressed */
+}
+
+

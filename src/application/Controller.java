@@ -41,15 +41,15 @@ public class Controller implements Initializable {
         rootItem.setExpanded(true); // Root is expanded by default
 
         ImageView iconView1 = new ImageView(folderIcon);
-        iconView1.setFitWidth(16); iconView1.setFitHeight(16);
+        iconView1.setFitWidth(24); iconView1.setFitHeight(20);
         TreeItem<String> launcher1 = new TreeItem<>("Work", iconView1);
 
         ImageView iconView2 = new ImageView(folderIcon);
-        iconView2.setFitWidth(16); iconView2.setFitHeight(16);
+        iconView2.setFitWidth(24); iconView2.setFitHeight(20);
         TreeItem<String> launcher2 = new TreeItem<>("Study", iconView2);
 
         ImageView iconView3 = new ImageView(folderIcon);
-        iconView3.setFitWidth(16); iconView3.setFitHeight(16);
+        iconView3.setFitWidth(24); iconView3.setFitHeight(20);
         TreeItem<String> launcher3 = new TreeItem<>("Games", iconView3);
 
         // Child items (these should be distinct instances for proper tree behavior)
@@ -95,8 +95,8 @@ public class Controller implements Initializable {
         public CustomStringTreeCell() {
             // Initialize elements once per cell
             itemIconView = new ImageView();
-            itemIconView.setFitWidth(16);
-            itemIconView.setFitHeight(16);
+            itemIconView.setFitWidth(24);
+            itemIconView.setFitHeight(20);
 
             itemTextLabel = new Label();
 
@@ -113,8 +113,6 @@ public class Controller implements Initializable {
             customArrowButton = new Button();
             if (arrowDownIcon != null) {
                 ImageView arrowImageView = new ImageView(arrowDownIcon);
-                arrowImageView.setFitWidth(12);
-                arrowImageView.setFitHeight(12);
                 customArrowButton.setGraphic(arrowImageView);
             } else {
                 customArrowButton.setText(">"); // Fallback
