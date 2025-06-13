@@ -1,6 +1,7 @@
 package application;
 	
 import javafx.application.Application;
+import com.google.gson.Gson;
 import javafx.fxml.FXMLLoader;
 import javafx.stage.Stage;
 import javafx.scene.Group;
@@ -39,6 +40,16 @@ public class Main extends Application {
 		 } catch(Exception e) {
 			 e.printStackTrace();
 		 } 
+	 }
+	 
+
+
+	 public class TestGson {
+	     public static void main(String[] args) {
+	         Gson gson = new Gson();
+	         String json = gson.toJson("Hello JavaFX + Gson");
+	         System.out.println(json);
+	     }
 	 }
 	 
 	 public static void main(String[] args) {

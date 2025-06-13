@@ -111,4 +111,8 @@
     -fx-background-color: rgba(150, 150, 170, 1); /* Even lighter when pressed */
 }
 
+.dialog-background {
+    -fx-background-color: #2b2b2b; /* Darker background for dialogs */
+    -fx-padding: 20px;
+}
 
