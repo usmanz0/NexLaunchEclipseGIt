@@ -98,7 +98,6 @@
     -fx-background-color: rgba(100, 100, 120, 0.8); /* Darker, slightly transparent thumb */
     -fx-background-insets: 0;
     -fx-background-radius: 5px; /* Rounded corners for the thumb */
-    -fx-transition: background-color 0.2s ease; /* Smooth transition on hover/press */
 }
 
 /* Thumb hover state */
