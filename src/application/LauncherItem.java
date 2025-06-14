@@ -1,23 +1,36 @@
-// application/LauncherItem.java
 package application;
 
-public class LauncherItem {
-    private String name;
-    private String urlOrPath; // Can be a URL or a local file path
-    private boolean isFolder; // true if it's a folder, false if it's a shortcut/URL
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
-    // Constructor for shortcut/URL items
+public class LauncherItem implements Serializable {
+    private static final long serialVersionUID = 1L; // Recommended for Serializable
+
+    private String name;
+    private String urlOrPath; // Null for folders
+    private boolean isFolder;
+    private List<LauncherItem> children; // To store children if it's a folder
+
+    // Constructor for folders
+    public LauncherItem(String name) {
+        this.name = name;
+        this.isFolder = true;
+        this.urlOrPath = null;
+        this.children = new ArrayList<>(); // Initialize children list for folders
+    }
+
+    // Constructor for shortcuts/URLs
     public LauncherItem(String name, String urlOrPath) {
         this.name = name;
         this.urlOrPath = urlOrPath;
-        this.isFolder = false; // By default, items with a URL are not folders
+        this.isFolder = false;
+        this.children = null; // No children for leaf nodes
     }
 
-    // Constructor for folder items
-    public LauncherItem(String name) {
-        this.name = name;
-        this.urlOrPath = null;
-        this.isFolder = true; // By default, items created with just a name are folders
+    // Default constructor for Gson deserialization (mandatory if you have custom constructors)
+    public LauncherItem() {
+        this.children = new ArrayList<>(); // Initialize for deserialization, will be nullified for leaves
     }
 
     public String getName() {
@@ -32,9 +45,35 @@ public class LauncherItem {
         return isFolder;
     }
 
-    // This method is crucial for the TreeView to display the item's name
-    @Override
-    public String toString() {
-        return name;
+    public List<LauncherItem> getChildren() {
+        // Return an empty list if it's a leaf to avoid NullPointerException when iterating
+        return isFolder && children != null ? children : new ArrayList<>();
+    }
+
+    // Method to add a child (used during TreeItem to LauncherItem conversion for saving)
+    public void addChild(LauncherItem child) {
+        if (this.isFolder && this.children != null) {
+            this.children.add(child);
+        } else {
+            System.err.println("Cannot add child to a non-folder LauncherItem or uninitialized children list: " + this.name);
+        }
+    }
+
+    // --- Setters (optional, but good for Gson if fields are private) ---
+    // Gson can access private fields via reflection, but explicit setters don't hurt
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setUrlOrPath(String urlOrPath) {
+        this.urlOrPath = urlOrPath;
+    }
+
+    public void setFolder(boolean folder) {
+        isFolder = folder;
+    }
+
+    public void setChildren(List<LauncherItem> children) {
+        this.children = children;
     }
 }

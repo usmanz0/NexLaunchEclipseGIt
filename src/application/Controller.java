@@ -2,8 +2,18 @@ package application;
 
 import java.net.URL;
 import java.util.ResourceBundle;
-import java.util.Optional; // NEW: Import Optional for Alert confirmation
+import java.util.Optional;
+import java.util.ArrayList;
+import java.util.List;
 
+// NEW IMPORTS FOR PERSISTENCE
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.File;
+import java.lang.reflect.Type;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -20,12 +30,11 @@ import javafx.scene.control.Label;
 
 // For opening links/shortcuts
 import java.awt.Desktop;
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-// NEW IMPORTS FOR POPUP, DIALOGS, and CONTEXT MENU
+// IMPORTS FOR POPUP, DIALOGS, and CONTEXT MENU
 import javafx.stage.Popup;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
@@ -36,10 +45,9 @@ import javafx.scene.Scene;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.control.ButtonType; // NEW: Import ButtonType for Alert confirmation
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
-
 
 public class Controller implements Initializable {
     @FXML
@@ -49,95 +57,189 @@ public class Controller implements Initializable {
     private Button addButton;
 
     private Image folderIcon;
-    private Image fileIcon; // For shortcuts/links
+    private Image fileIcon;
     private Image arrowDownIcon;
-    private Image arrowUpIcon; // Add this if you have an up arrow image (e.g., arrow_up.png)
+    private Image arrowUpIcon;
 
     private Popup addOptionsPopup;
     private VBox addOptionsPopupContent;
+
+    // NEW: Path for saving/loading data
+    private static final String DATA_FILE_NAME = "launchers_data.json";
+    private static final String DATA_FILE_PATH = System.getProperty("user.home") + File.separator + DATA_FILE_NAME;
 
     @Override
     public void initialize(URL arg0, ResourceBundle arg1) {
         folderIcon = new Image(Controller.class.getResourceAsStream("/foldericon.png"));
         arrowDownIcon = new Image(Controller.class.getResourceAsStream("/arrow_down.png"));
-        // Load arrow_up.png if you have it for expansion/collapse visual feedback
-        // try {
-        //     arrowUpIcon = new Image(Controller.class.getResourceAsStream("/arrow_up.png"));
-        // } catch (NullPointerException e) {
-        //     System.err.println("Warning: arrow_up.png not found. Expansion will use default arrow_down.");
-        //     arrowUpIcon = null;
-        // }
-
-
+        
         try {
             fileIcon = new Image(Controller.class.getResourceAsStream("/fileicon.png"));
         } catch (NullPointerException e) {
             System.err.println("Warning: fileicon.png not found. Leaf nodes will not have a specific file icon.");
-            fileIcon = null; // Ensure it's null if not found
+            fileIcon = null;
         }
 
+        // Load data at startup
+        loadLaunchers();
 
-        // Initialize TreeView with LauncherItem
-        TreeItem<LauncherItem> rootItem = new TreeItem<>(new LauncherItem("Launchers")); // Root is a folder
+        AllLaunchersTreeView.setShowRoot(false);
+        AllLaunchersTreeView.setCellFactory(tv -> new CustomStringTreeCell(this));
+        createAddOptionsPopup();
+    }
+
+    // --- Save and Load Methods ---
+    private void loadLaunchers() {
+        File dataFile = new File(DATA_FILE_PATH);
+        if (dataFile.exists()) {
+            try (FileReader reader = new FileReader(dataFile)) {
+                Gson gson = new Gson();
+                Type listType = new TypeToken<ArrayList<LauncherItem>>(){}.getType();
+                List<LauncherItem> loadedItems = gson.fromJson(reader, listType);
+
+                if (loadedItems != null && !loadedItems.isEmpty()) {
+                    TreeItem<LauncherItem> rootItem = new TreeItem<>(new LauncherItem("Launchers"));
+                    for (LauncherItem item : loadedItems) {
+                        rootItem.getChildren().add(convertLauncherItemToTreeItem(item));
+                    }
+                    AllLaunchersTreeView.setRoot(rootItem);
+                } else {
+                    // If file exists but is empty or malformed, start with default
+                    setupDefaultLaunchers();
+                }
+            } catch (IOException e) {
+                System.err.println("Error reading launchers data: " + e.getMessage());
+                showAlert(AlertType.ERROR, "Load Error", "Failed to load launcher data: " + e.getMessage());
+                setupDefaultLaunchers(); // Fallback to default
+            }
+        } else {
+            setupDefaultLaunchers(); // First run or file not found
+        }
+    }
+
+    // Call this method from Main.java when the primary stage closes
+    public void saveLaunchers() {
+        if (AllLaunchersTreeView.getRoot() == null || AllLaunchersTreeView.getRoot().getChildren().isEmpty()) {
+            // If there's no data to save, delete the file if it exists
+            File dataFile = new File(DATA_FILE_PATH);
+            if (dataFile.exists()) {
+                dataFile.delete();
+                System.out.println("No launchers to save. Data file deleted.");
+            }
+            return;
+        }
+
+        List<LauncherItem> itemsToSave = new ArrayList<>();
+        // Convert top-level TreeItems to LauncherItems for serialization
+        for (TreeItem<LauncherItem> treeItem : AllLaunchersTreeView.getRoot().getChildren()) {
+            itemsToSave.add(convertTreeItemToLauncherItem(treeItem));
+        }
+
+        try (FileWriter writer = new FileWriter(DATA_FILE_PATH)) {
+            // Use GsonBuilder.setPrettyPrinting() for human-readable JSON
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            gson.toJson(itemsToSave, writer);
+            System.out.println("Launchers data saved to: " + DATA_FILE_PATH);
+        } catch (IOException e) {
+            System.err.println("Error writing launchers data: " + e.getMessage());
+            showAlert(AlertType.ERROR, "Save Error", "Failed to save launcher data: " + e.getMessage());
+        }
+    }
+
+    // Helper to convert TreeItem hierarchy to serializable LauncherItem hierarchy
+    private LauncherItem convertTreeItemToLauncherItem(TreeItem<LauncherItem> treeItem) {
+        LauncherItem launcherItem = treeItem.getValue();
+        // Create a new LauncherItem for serialization to avoid issues with JavaFX TreeItem internal state
+        LauncherItem serializableItem = new LauncherItem(launcherItem.getName(), launcherItem.getUrlOrPath());
+        serializableItem.setFolder(launcherItem.isFolder());
+
+        if (launcherItem.isFolder()) {
+            for (TreeItem<LauncherItem> childTreeItem : treeItem.getChildren()) {
+                serializableItem.addChild(convertTreeItemToLauncherItem(childTreeItem));
+            }
+        }
+        return serializableItem;
+    }
+
+    // Helper to convert serializable LauncherItem hierarchy back to TreeItem hierarchy
+    private TreeItem<LauncherItem> convertLauncherItemToTreeItem(LauncherItem launcherItem) {
+        ImageView iconView = null;
+        if (launcherItem.isFolder()) {
+            if (folderIcon != null) {
+                iconView = new ImageView(folderIcon);
+                iconView.setFitWidth(24);
+                iconView.setFitHeight(20);
+            }
+        } else { // It's a file/shortcut
+            if (fileIcon != null) {
+                iconView = new ImageView(fileIcon);
+                iconView.setFitWidth(24);
+                iconView.setFitHeight(20);
+            } else if (folderIcon != null) { // Fallback if no specific file icon
+                iconView = new ImageView(folderIcon);
+                iconView.setFitWidth(24);
+                iconView.setFitHeight(20);
+            }
+        }
+
+        TreeItem<LauncherItem> treeItem = new TreeItem<>(launcherItem, iconView);
+        treeItem.setExpanded(true); // Keep folders expanded by default on load
+
+        if (launcherItem.isFolder()) {
+            for (LauncherItem childItem : launcherItem.getChildren()) {
+                treeItem.getChildren().add(convertLauncherItemToTreeItem(childItem));
+            }
+        }
+        return treeItem;
+    }
+
+    // Existing setup for default launchers if no data is loaded
+    private void setupDefaultLaunchers() {
+        TreeItem<LauncherItem> rootItem = new TreeItem<>(new LauncherItem("Launchers"));
         rootItem.setExpanded(true);
 
-        // Example data using LauncherItem
         TreeItem<LauncherItem> launcher1 = new TreeItem<>(new LauncherItem("Work"), new ImageView(folderIcon));
         TreeItem<LauncherItem> launcher2 = new TreeItem<>(new LauncherItem("Study"), new ImageView(folderIcon));
         TreeItem<LauncherItem> launcher3 = new TreeItem<>(new LauncherItem("Games"), new ImageView(folderIcon));
 
-        // Child items (links/shortcuts)
-        // Note: The second parameter is the URL/path
         TreeItem<LauncherItem> workLink1 = new TreeItem<>(new LauncherItem("Google", "https://www.google.com"), new ImageView(fileIcon));
         TreeItem<LauncherItem> studyLink1 = new TreeItem<>(new LauncherItem("Stack Overflow", "https://stackoverflow.com"), new ImageView(fileIcon));
-        // Example: local executable (adjust path for your system)
         TreeItem<LauncherItem> gameShortcut1 = new TreeItem<>(new LauncherItem("Steam", "C:\\Program Files (x86)\\Steam\\Steam.exe"), new ImageView(fileIcon));
-        // Another example shortcut
         TreeItem<LauncherItem> workShortcut1 = new TreeItem<>(new LauncherItem("Notepad", "C:\\Windows\\notepad.exe"), new ImageView(fileIcon));
 
-        launcher1.getChildren().addAll(workLink1, studyLink1, workShortcut1); // Added workShortcut1
+        launcher1.getChildren().addAll(workLink1, studyLink1, workShortcut1);
         launcher2.getChildren().addAll(studyLink1, gameShortcut1);
         launcher3.getChildren().addAll(workLink1, studyLink1, gameShortcut1);
 
         rootItem.getChildren().addAll(launcher1, launcher2, launcher3);
-
         AllLaunchersTreeView.setRoot(rootItem);
-        AllLaunchersTreeView.setShowRoot(false);
-
-        // --- IMPORTANT: Set the custom cell factory ---
-        // Pass 'this' controller instance so the cell can call dialog methods
-        AllLaunchersTreeView.setCellFactory(tv -> new CustomStringTreeCell(this));
-
-        // Initialize the add options popup
-        createAddOptionsPopup();
     }
+    // --- End of Save and Load Methods ---
 
     private void createAddOptionsPopup() {
         addOptionsPopup = new Popup();
-        addOptionsPopup.setAutoHide(true); // Popup hides when clicking outside
+        addOptionsPopup.setAutoHide(true);
 
-        Button createNewLauncherBtn = new Button("Create New Launcher Folder"); // Clarified text
-        createNewLauncherBtn.getStyleClass().add("popup-button"); // Apply CSS for styling
+        Button createNewLauncherBtn = new Button("Create New Launcher Folder");
+        createNewLauncherBtn.getStyleClass().add("popup-button");
         createNewLauncherBtn.setOnAction(e -> {
-            addOptionsPopup.hide(); // Hide this popup first
-            showCreateNewLauncherFolderDialog(); // Show the dialog to create a new folder
+            addOptionsPopup.hide();
+            showCreateNewLauncherFolderDialog();
         });
 
         Button addStartupLauncherBtn = new Button("Add Startup Launcher");
-        addStartupLauncherBtn.getStyleClass().add("popup-button"); // Apply CSS for styling
+        addStartupLauncherBtn.getStyleClass().add("popup-button");
         addStartupLauncherBtn.setOnAction(e -> {
-            addOptionsPopup.hide(); // Hide this popup first
+            addOptionsPopup.hide();
             System.out.println("Add Startup Launcher clicked!");
-            // Implement logic for "Add Startup Launcher" here
             showAlert(AlertType.INFORMATION, "Feature Not Implemented", "This feature is coming soon!");
         });
 
-        addOptionsPopupContent = new VBox(5, createNewLauncherBtn, addStartupLauncherBtn); // 5px spacing
-        addOptionsPopupContent.getStyleClass().add("add-options-popup"); // Apply CSS for styling
-        addOptionsPopupContent.setAlignment(Pos.CENTER); // Center buttons in the VBox
-        addOptionsPopup.getContent().add(addOptionsPopupContent); // Add the content VBox to the popup
+        addOptionsPopupContent = new VBox(5, createNewLauncherBtn, addStartupLauncherBtn);
+        addOptionsPopupContent.getStyleClass().add("add-options-popup");
+        addOptionsPopupContent.setAlignment(Pos.CENTER);
+        addOptionsPopup.getContent().add(addOptionsPopupContent);
 
-        // Force an initial layout pass immediately after content is added
         addOptionsPopupContent.applyCss();
         addOptionsPopupContent.layout();
     }
@@ -155,7 +257,7 @@ public class Controller implements Initializable {
         }
 
         Point2D screenCoords = addButton.localToScreen(addButton.getBoundsInLocal().getMinX(), addButton.getBoundsInLocal().getMinY());
-        double x = screenCoords.getX() - 140; // Adjust for popup width as needed
+        double x = screenCoords.getX() - 140;
         double y = screenCoords.getY();
         Window window = addButton.getScene().getWindow();
 
@@ -184,7 +286,6 @@ public class Controller implements Initializable {
         createBtn.setOnAction(e -> {
             String folderName = folderNameField.getText().trim();
             if (!folderName.isEmpty()) {
-                // Create a new LauncherItem for the folder
                 addLauncherItemToFolder(AllLaunchersTreeView.getRoot(), new LauncherItem(folderName));
                 dialogStage.close();
             } else {
@@ -208,7 +309,6 @@ public class Controller implements Initializable {
         dialogStage.setScene(dialogScene);
         dialogStage.showAndWait();
     }
-
 
     public void showAddUrlDialog(TreeItem<LauncherItem> parentFolder) {
         if (parentFolder == null || !parentFolder.getValue().isFolder()) {
@@ -236,7 +336,7 @@ public class Controller implements Initializable {
             String name = nameField.getText().trim();
             String url = urlField.getText().trim();
             if (!name.isEmpty() && !url.isEmpty()) {
-                addLauncherItemToFolder(parentFolder, new LauncherItem(name, url)); // Create URL LauncherItem
+                addLauncherItemToFolder(parentFolder, new LauncherItem(name, url));
                 dialogStage.close();
             } else {
                 showAlert(AlertType.WARNING, "Input Error", "Both name and URL cannot be empty.");
@@ -291,7 +391,7 @@ public class Controller implements Initializable {
             String name = nameField.getText().trim();
             String path = pathField.getText().trim();
             if (!name.isEmpty() && !path.isEmpty()) {
-                addLauncherItemToFolder(parentFolder, new LauncherItem(name, path)); // Create Shortcut LauncherItem
+                addLauncherItemToFolder(parentFolder, new LauncherItem(name, path));
                 dialogStage.close();
             } else {
                 showAlert(AlertType.WARNING, "Input Error", "Both name and path cannot be empty.");
@@ -326,7 +426,7 @@ public class Controller implements Initializable {
             iconView = new ImageView(folderIcon);
         } else if (!newLauncherItem.isFolder() && fileIcon != null) {
             iconView = new ImageView(fileIcon);
-        } else if (folderIcon != null) { // Fallback if no specific icon
+        } else if (folderIcon != null) {
             iconView = new ImageView(folderIcon);
         }
 
@@ -338,10 +438,9 @@ public class Controller implements Initializable {
         TreeItem<LauncherItem> newTreeItem = new TreeItem<>(newLauncherItem, iconView);
 
         parentFolder.getChildren().add(newTreeItem);
-        parentFolder.setExpanded(true); // Ensure the parent folder is expanded
+        parentFolder.setExpanded(true);
         showAlert(AlertType.INFORMATION, "Item Added", "'" + newLauncherItem.getName() + "' added to '" + parentFolder.getValue().getName() + "'!");
     }
-
 
     private void showAlert(AlertType type, String title, String message) {
         Alert alert = new Alert(type);
@@ -353,7 +452,6 @@ public class Controller implements Initializable {
         alert.showAndWait();
     }
 
-
     public void selectItem() {
         TreeItem<LauncherItem> item = AllLaunchersTreeView.getSelectionModel().getSelectedItem();
         if (item != null) {
@@ -361,9 +459,7 @@ public class Controller implements Initializable {
         }
     }
 
-    // --- Custom TreeCell Implementation ---
     private class CustomStringTreeCell extends TreeCell<LauncherItem> {
-
         private HBox contentWrapper;
         private ImageView itemIconView;
         private Label itemTextLabel;
@@ -371,7 +467,6 @@ public class Controller implements Initializable {
         private Button customArrowButton;
         private HBox actionButtonsBox;
         private ContextMenu branchContextMenu;
-
         private Controller controller;
 
         public CustomStringTreeCell(Controller controller) {
@@ -388,18 +483,16 @@ public class Controller implements Initializable {
             launchButton.setOnAction(event -> {
                 TreeItem<LauncherItem> treeItem = getTreeItem();
                 if (treeItem != null && treeItem.getValue() != null) {
-                    if (treeItem.getValue().isFolder()) { // If it's a folder (branch)
-                        // Show confirmation dialog before launching multiple items
+                    if (treeItem.getValue().isFolder()) {
                         Alert confirmAlert = new Alert(AlertType.CONFIRMATION);
                         confirmAlert.setTitle("Launch All Items in Folder");
                         confirmAlert.setHeaderText("Launch all items in '" + treeItem.getValue().getName() + "'?");
                         confirmAlert.setContentText("This will attempt to open " + treeItem.getChildren().size() + " links/shortcuts.");
                         confirmAlert.getDialogPane().getStylesheets().add(getClass().getResource("application.css").toExternalForm());
-                        confirmAlert.getDialogPane().getStyleClass().add("alert-dialog"); // Apply CSS
+                        confirmAlert.getDialogPane().getStyleClass().add("alert-dialog");
 
                         Optional<ButtonType> result = confirmAlert.showAndWait();
                         if (result.isPresent() && result.get() == ButtonType.OK) {
-                            // Iterate through children and launch them
                             for (TreeItem<LauncherItem> childItem : treeItem.getChildren()) {
                                 String pathOrUrl = childItem.getValue().getUrlOrPath();
                                 if (pathOrUrl != null && !pathOrUrl.trim().isEmpty()) {
@@ -407,11 +500,10 @@ public class Controller implements Initializable {
                                     controller.launchItemPath(pathOrUrl);
                                 } else {
                                     System.out.println("Skipping child with no launch path/URL: " + childItem.getValue().getName());
-                                    // Optional: controller.showAlert for individual missing child paths, but might be too many popups
                                 }
                             }
                         }
-                    } else { // If it's a single shortcut/URL (leaf)
+                    } else {
                         String pathOrUrl = treeItem.getValue().getUrlOrPath();
                         if (pathOrUrl != null && !pathOrUrl.trim().isEmpty()) {
                             System.out.println("Launching single: " + pathOrUrl);
@@ -425,7 +517,6 @@ public class Controller implements Initializable {
                 }
             });
 
-
             customArrowButton = new Button();
             if (arrowDownIcon != null) {
                 ImageView arrowImageView = new ImageView(arrowDownIcon);
@@ -437,7 +528,7 @@ public class Controller implements Initializable {
             customArrowButton.getStyleClass().add("custom-arrow-button");
             customArrowButton.setOnAction(event -> {
                 TreeItem<LauncherItem> treeItem = getTreeItem();
-                if (treeItem != null && treeItem.getValue().isFolder()) { // Only expand/collapse folders
+                if (treeItem != null && treeItem.getValue().isFolder()) {
                     System.out.println("Custom Arrow clicked for: " + treeItem.getValue().getName());
                     treeItem.setExpanded(!treeItem.isExpanded());
                 }
@@ -454,7 +545,6 @@ public class Controller implements Initializable {
             contentWrapper.getStyleClass().add("custom-tree-cell-content");
             contentWrapper.setAlignment(Pos.CENTER_LEFT);
 
-            // --- Context Menu Initialization ---
             branchContextMenu = new ContextMenu();
 
             MenuItem addUrlMenuItem = new MenuItem("Add URL");
@@ -499,7 +589,7 @@ public class Controller implements Initializable {
 
                 TreeItem<LauncherItem> treeItem = getTreeItem();
                 if (treeItem != null) {
-                    if (!item.isFolder()) { // If it's a shortcut/link (not a folder)
+                    if (!item.isFolder()) {
                         if (fileIcon != null) {
                             itemIconView.setImage(fileIcon);
                             itemIconView.setVisible(true);
@@ -512,7 +602,7 @@ public class Controller implements Initializable {
                         launchButton.setVisible(true);
                         launchButton.setManaged(true);
                         setContextMenu(null);
-                    } else { // If it's a folder (branch node)
+                    } else {
                         if (folderIcon != null) {
                             itemIconView.setImage(folderIcon);
                             itemIconView.setVisible(true);
@@ -521,7 +611,7 @@ public class Controller implements Initializable {
                         }
                         customArrowButton.setVisible(true);
                         customArrowButton.setManaged(true);
-                        launchButton.setVisible(true); // Launch button always visible for folders
+                        launchButton.setVisible(true);
                         launchButton.setManaged(true);
 
                         setContextMenu(branchContextMenu);
@@ -533,7 +623,6 @@ public class Controller implements Initializable {
 
                 setDisclosureNode(null);
 
-                // Update custom arrow graphic based on expansion state (if custom arrow is visible)
                 if (customArrowButton.isVisible() && treeItem != null && treeItem.getValue().isFolder()) {
                     if (treeItem.isExpanded() && arrowUpIcon != null) {
                         ((ImageView)customArrowButton.getGraphic()).setImage(arrowUpIcon);
