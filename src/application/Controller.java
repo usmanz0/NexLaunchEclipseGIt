@@ -149,10 +149,19 @@ public class Controller implements Initializable {
     // Helper to convert TreeItem hierarchy to serializable LauncherItem hierarchy
     private LauncherItem convertTreeItemToLauncherItem(TreeItem<LauncherItem> treeItem) {
         LauncherItem launcherItem = treeItem.getValue();
-        // Create a new LauncherItem for serialization to avoid issues with JavaFX TreeItem internal state
-        LauncherItem serializableItem = new LauncherItem(launcherItem.getName(), launcherItem.getUrlOrPath());
-        serializableItem.setFolder(launcherItem.isFolder());
+        LauncherItem serializableItem;
 
+        if (launcherItem.isFolder()) {
+            // Use the constructor for folders, which initializes the children list
+            serializableItem = new LauncherItem(launcherItem.getName());
+            // No need to setFolder(true) explicitly, as the constructor does it
+        } else {
+            // Use the constructor for shortcuts/URLs
+            serializableItem = new LauncherItem(launcherItem.getName(), launcherItem.getUrlOrPath());
+            // No need to setFolder(false) explicitly, as the constructor does it
+        }
+
+        // Now, if it's a folder, recursively convert and add its children
         if (launcherItem.isFolder()) {
             for (TreeItem<LauncherItem> childTreeItem : treeItem.getChildren()) {
                 serializableItem.addChild(convertTreeItemToLauncherItem(childTreeItem));
