@@ -698,7 +698,8 @@ public class Controller implements Initializable {
                         Desktop.getDesktop().browse(new URI(fullUrl));
                     } else {
                         showAlert(AlertType.ERROR, "Launch Error", "Browser launch not supported on this system.");
-                } else {
+                    }
+                } 	else {
                     File file = new File(path);
                     if (file.exists()) {
                         if (Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
@@ -717,8 +718,8 @@ public class Controller implements Initializable {
             } catch (SecurityException e) {
                 showAlert(AlertType.ERROR, "Launch Error", "Security exception while launching: " + path + "\n" + e.getMessage());
             }
-        } else {
+          } else {
             showAlert(AlertType.ERROR, "Launch Error", "Desktop actions are not supported on this system.");
+          	}
         }
-    }
 }
