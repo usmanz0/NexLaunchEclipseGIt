@@ -698,7 +698,6 @@ public class Controller implements Initializable {
                         Desktop.getDesktop().browse(new URI(fullUrl));
                     } else {
                         showAlert(AlertType.ERROR, "Launch Error", "Browser launch not supported on this system.");
-                    }
                 } else {
                     File file = new File(path);
                     if (file.exists()) {
