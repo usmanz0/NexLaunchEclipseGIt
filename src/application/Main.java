@@ -11,42 +11,11 @@ import javafx.scene.paint.Color;
 public class Main extends Application {
 
     private Controller controller; // Declare the controller field
-
-    // NEW: Store command line arguments
-    private String[] args;
-
-    @Override
-    public void init() throws Exception {
-        // Capture command line arguments here, before start() is called
-        this.args = getParameters().getRaw().toArray(new String[0]);
-        super.init();
-    }
-
+    
     @Override
     public void start(Stage primaryStage) { // Use primaryStage for the main window
-        // NEW: Check if the application should run in background mode
-        boolean runInBackground = false;
-        if (args != null) {
-            for (String arg : args) {
-                if (arg.equals("--background-startup")) { // This matches the argument set in StartupManager
-                    runInBackground = true;
-                    break;
-                }
-            }
-        }
+        // Removed: All runInBackground checks and conditional logic
 
-        if (runInBackground) {
-            System.out.println("Main: Application starting in background mode.");
-            // Initialize controller for background operations without showing GUI
-            controller = new Controller();
-            controller.setBackgroundMode(true); // Tell the controller it's in background mode
-            // The controller's initialize method will handle the background tasks and then exit.
-            controller.initialize(null, null); // Manually call initialize to trigger background logic
-            // No need to show a stage or scene, as it's background.
-            return; // Exit start method immediately
-        }
-
-        // --- Normal GUI startup logic (existing code) ---
         System.out.println("Main: Application starting in normal GUI mode.");
         try {
             // 1. Create an FXMLLoader instance
@@ -58,8 +27,7 @@ public class Main extends Application {
             // 3. Get the controller instance from the loader
             controller = loader.getController();
 
-            // NEW: Inform the controller it's NOT in background mode (redundant but explicit)
-            controller.setBackgroundMode(false);
+            // Removed: controller.setBackgroundMode(false); // No longer needed
 
             // Setup the Scene
             Scene scene = new Scene(root, 1080, 720, Color.rgb(18, 18, 18, 1));

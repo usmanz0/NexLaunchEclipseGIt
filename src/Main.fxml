@@ -51,7 +51,7 @@
                         <Font name="Albert Sans SemiBold" size="20.0" />
                      </font>
                   </Text>
-                  <TreeView fx:id="AllLaunchersTreeView" layoutX="13.0" layoutY="100.0" onContextMenuRequested="#selectItem" onMouseClicked="#selectItem" prefHeight="326.0" prefWidth="546.0" showRoot="false" />
+                  <TreeView fx:id="AllLaunchersTreeView" layoutX="13.0" layoutY="100.0" onContextMenuRequested="#selectItem" onMouseClicked="#selectItem"  prefHeight="326.0" prefWidth="546.0" showRoot="false" />
 
                   <HBox layoutX="13.0" layoutY="55.0" prefHeight="30.0" prefWidth="546.0" spacing="10.0">
                      <children>

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.io.File;
 import java.io.IOException;
+import java.util.stream.Collectors;
 
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -21,7 +22,9 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.control.Label;
-import javafx.scene.control.TextField; // <--- Existing Import
+import javafx.scene.control.TextField;
+import javafx.scene.control.ListView;
+import javafx.scene.control.ListCell;
 
 import java.awt.Desktop;
 import java.net.URI;
@@ -47,11 +50,9 @@ public class Controller implements Initializable {
     @FXML
     private Button addButton;
 
-    // --- NEW FXML ELEMENTS FOR STARTUP LAUNCHERS ---
     @FXML
-    private TreeView<LauncherItem> StartupLaunchersTreeView; // FXML element for Startup Launchers
+    private TreeView<LauncherItem> StartupLaunchersTreeView;
 
-    // --- FXML elements for Search (already in your provided code) ---
     @FXML
     private TextField searchBox;
     @FXML
@@ -61,114 +62,136 @@ public class Controller implements Initializable {
     private Image fileIcon;
     private Image arrowDownIcon;
     private Image arrowUpIcon;
+    private Image startupIcon;
 
     private Popup addOptionsPopup;
     private VBox addOptionsPopupContent;
 
     private LauncherDataService dataService;
-    private StartupManager startupManager; // NEW: Instance of StartupManager
+    // Removed: private StartupManager startupManager; // No longer needed
+    // Removed: private boolean isBackgroundMode = false; // No longer needed
 
-    // --- Store the original full list of top-level launchers (already existing) ---
     private List<LauncherItem> allOriginalTopLevelLaunchers = new ArrayList<>();
-    // --- NEW: Separate list for startup launchers (these are also part of allOriginalTopLevelLaunchers) ---
-    private List<LauncherItem> allOriginalStartupLaunchers = new ArrayList<>();
+    private List<LauncherItem> allOriginalStartupLaunchers = new ArrayList<>(); // Items explicitly marked as startup
 
-    private boolean isBackgroundMode = false; // NEW: Flag to indicate if app is running in background
-
-    // NEW: Constructor to allow Main to set background mode
     public Controller() {
         // Default constructor for FXML loading
     }
 
-    // NEW: Setter for background mode, called by Main.java
-    public void setBackgroundMode(boolean isBackgroundMode) {
-        this.isBackgroundMode = isBackgroundMode;
-        System.out.println("Controller: App running in background mode: " + this.isBackgroundMode);
-    }
+    // Removed: public void setBackgroundMode(boolean isBackgroundMode) { ... }
 
     @Override
     public void initialize(URL arg0, ResourceBundle arg1) {
-        // If in background mode, skip UI initialization and perform background tasks
-        if (isBackgroundMode) {
-            System.out.println("Controller: Initializing in background mode. Skipping GUI setup.");
-            dataService = new LauncherDataService(); // Need data service even in background
-            startupManager = new StartupManager(); // Need startup manager
-            performBackgroundStartupLaunch(); // Execute startup launchers
-            return; // Exit initialization early, do not show GUI
+        // Removed: if (isBackgroundMode) { ... return; } block
+
+        System.out.println("Controller: Initializing application.");
+
+        // --- Robust Icon Loading ---
+        try {
+            folderIcon = new Image(Controller.class.getResourceAsStream("/foldericon.png"));
+        } catch (NullPointerException e) {
+            System.err.println("Warning: foldericon.png not found. Using a default placeholder.");
+            folderIcon = new Image("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=");
         }
-
-        System.out.println("Controller: Initializing in normal GUI mode.");
-
-        folderIcon = new Image(Controller.class.getResourceAsStream("/foldericon.png"));
-        arrowDownIcon = new Image(Controller.class.getResourceAsStream("/arrow_down.png"));
-        arrowUpIcon = new Image(Controller.class.getResourceAsStream("/arrow_up.png"));
 
         try {
             fileIcon = new Image(Controller.class.getResourceAsStream("/fileicon.png"));
         } catch (NullPointerException e) {
-            System.err.println("Warning: fileicon.png not found. Leaf nodes will not have a specific file icon.");
-            fileIcon = null;
+            System.err.println("Warning: fileicon.png not found. Using folderIcon as fallback for files.");
+            fileIcon = folderIcon; // Fallback to folder icon or another generic icon
         }
 
-        dataService = new LauncherDataService();
-        startupManager = new StartupManager(); // NEW: Initialize StartupManager
+        try {
+            startupIcon = new Image(Controller.class.getResourceAsStream("/startupicon.png"));
+        } catch (NullPointerException e) {
+            System.err.println("Warning: startupicon.png not found. Using folderIcon as fallback for startup items.");
+            startupIcon = folderIcon; // Fallback to folder icon or another generic icon
+        }
 
-        // Load data at startup
+        try {
+            arrowDownIcon = new Image(Controller.class.getResourceAsStream("/arrow_down.png"));
+        } catch (NullPointerException e) {
+            System.err.println("Warning: arrow_down.png not found.");
+            arrowDownIcon = null;
+        }
+
+        try {
+            arrowUpIcon = new Image(Controller.class.getResourceAsStream("/arrow_up.png"));
+        } catch (NullPointerException e) {
+            System.err.println("Warning: arrow_up.png not found.");
+            arrowUpIcon = null;
+        }
+        // --- End Robust Icon Loading ---
+
+
+        dataService = new LauncherDataService();
+        // Removed: startupManager = new StartupManager(); // No longer needed
+
         loadLaunchers(); // This will now populate allOriginalTopLevelLaunchers AND allOriginalStartupLaunchers
 
         AllLaunchersTreeView.setShowRoot(false);
         AllLaunchersTreeView.setCellFactory(tv -> new CustomStringTreeCell(this));
 
-        // NEW: Setup StartupLaunchersTreeView
         if (StartupLaunchersTreeView != null) {
             StartupLaunchersTreeView.setShowRoot(false);
-            StartupLaunchersTreeView.setCellFactory(tv -> new CustomStringTreeCell(this)); // Use the same cell factory
-            setupStartupLaunchersTree(); // Populate the Startup Launchers TreeView
+            StartupLaunchersTreeView.setCellFactory(tv -> new CustomStringTreeCell(this));
+            setupStartupLaunchersTree();
         } else {
             System.err.println("Warning: StartupLaunchersTreeView is null. Check FXML fx:id.");
         }
 
-
         createAddOptionsPopup();
 
-        // Add listener to searchBox for instant search or clearing
         if (searchBox != null) {
             searchBox.textProperty().addListener((obs, oldText, newText) -> {
                 if (newText.isEmpty() && !oldText.isEmpty()) {
-                    // If text is cleared, restore all launchers
                     restoreAllLaunchers();
                 }
             });
         }
+
+        // --- NEW BEHAVIOR: Launch startup items immediately after app starts normally ---
+        System.out.println("Controller: App initialized. Launching startup items now.");
+        performAutoStartupLaunch(); // New method for immediate launch
     }
 
-    // --- NEW: Method to handle background startup and launching items ---
-    private void performBackgroundStartupLaunch() {
-        System.out.println("Controller: Executing background startup launchers...");
-        // Ensure data is loaded
-        loadLaunchers(); // This will populate allOriginalStartupLaunchers
+    // NEW METHOD (Renamed from performBackgroundStartupLaunch): For launching startup items when the application itself starts
+    private void performAutoStartupLaunch() {
+        loadLaunchers(); // Ensure data is loaded to get allOriginalStartupLaunchers
 
         if (allOriginalStartupLaunchers.isEmpty()) {
-            System.out.println("Controller: No startup launchers found to run in background.");
+            System.out.println("Controller: No startup launchers found to auto-launch on app start.");
         } else {
-            System.out.println("Controller: Launching " + allOriginalStartupLaunchers.size() + " startup items.");
+            System.out.println("Controller: Auto-launching " + allOriginalStartupLaunchers.size() + " top-level startup items.");
             for (LauncherItem item : allOriginalStartupLaunchers) {
-                if (!item.isFolder()) { // Only launch non-folder items
-                    launchItemPath(item.getUrlOrPath());
-                } else {
-                    // If a folder is marked as startup, decide if you want to launch its contents
-                    // For now, only direct items will be launched
-                    System.out.println("Controller: Skipping folder '" + item.getName() + "' in background startup. Only direct items are launched.");
-                }
+                launchRecursive(item); // Use recursive launcher for folders
             }
         }
-        System.out.println("Controller: Background startup process completed. Exiting application.");
-        // Close the application after background tasks are done
-        javafx.application.Platform.exit();
+        // Removed: javafx.application.Platform.exit(); as the app is now always in GUI mode
+    }
+
+    // Existing: Recursive launch method
+    private void launchRecursive(LauncherItem item) {
+        if (item == null) return;
+
+        if (item.isFolder()) {
+            System.out.println("Controller: Launching items inside folder: " + item.getName());
+            if (item.getChildren() != null) {
+                for (LauncherItem child : item.getChildren()) {
+                    launchRecursive(child); // Recurse for children
+                }
+            }
+        } else { // It's a non-folder item (URL or shortcut)
+            if (item.getUrlOrPath() != null && !item.getUrlOrPath().trim().isEmpty()) {
+                System.out.println("Controller: Launching item: " + item.getName() + " (" + item.getUrlOrPath() + ")");
+                launchItemPath(item.getUrlOrPath());
+            } else {
+                System.out.println("Controller: Skipping item with no launch path/URL: " + item.getName());
+            }
+        }
     }
 
 
-    // --- Load Method (updated for startup launchers) ---
     private void loadLaunchers() {
         System.out.println("Controller: Attempting to load launchers...");
         List<LauncherItem> loadedItems = new ArrayList<>();
@@ -186,15 +209,17 @@ public class Controller implements Initializable {
             showAlert(AlertType.ERROR, "Load Error", "Failed to parse launcher data (file might be corrupted): " + e.getMessage() + "\nStarting with an empty launcher list.");
         }
 
-        // --- Store the loaded items in our 'allOriginalTopLevelLaunchers' list ---
         allOriginalTopLevelLaunchers.clear();
         allOriginalTopLevelLaunchers.addAll(loadedItems);
 
-        // NEW: Populate the separate list for startup launchers
+        // Populate the separate list for startup launchers
         allOriginalStartupLaunchers.clear();
-        populateStartupLaunchersList(allOriginalTopLevelLaunchers); // Recursively find all startup items
+        for (LauncherItem item : allOriginalTopLevelLaunchers) {
+            if (item.isStartupLauncher()) {
+                allOriginalStartupLaunchers.add(item);
+            }
+        }
 
-        // Always create a root item, even if it's conceptually empty.
         TreeItem<LauncherItem> rootItem = new TreeItem<>(new LauncherItem("InvisibleRoot"));
 
         if (!allOriginalTopLevelLaunchers.isEmpty()) {
@@ -209,31 +234,13 @@ public class Controller implements Initializable {
         rootItem.setExpanded(true);
     }
 
-    // NEW: Recursive method to find all startup launchers from the main list
-    private void populateStartupLaunchersList(List<LauncherItem> items) {
-        for (LauncherItem item : items) {
-            if (item.isStartupLauncher()) {
-                allOriginalStartupLaunchers.add(item);
-            }
-            if (item.isFolder()) {
-                populateStartupLaunchersList(item.getChildren()); // Recurse into children
-            }
-        }
-    }
-
-    // NEW: Method to setup and populate the StartupLaunchersTreeView
     private void setupStartupLaunchersTree() {
         TreeItem<LauncherItem> startupRoot = new TreeItem<>(new LauncherItem("StartupLaunchersRoot"));
-        startupRoot.setExpanded(true); // Always expand the root for startup items
+        startupRoot.setExpanded(true);
 
-        // Filter and add only startup items to this tree
         if (!allOriginalStartupLaunchers.isEmpty()) {
             for (LauncherItem item : allOriginalStartupLaunchers) {
-                // For simplicity, we'll add a *copy* of the TreeItem.
-                // If you want full sync (e.g., changing name in AllLaunchersTreeView updates StartupLaunchersTreeView),
-                // you'd need to manage shared TreeItem instances or listeners more carefully.
-                // For now, this approach avoids complex synchronization issues.
-                startupRoot.getChildren().add(convertLauncherItemToTreeItem(item));
+                startupRoot.getChildren().add(deepCopyTreeItem(convertLauncherItemToTreeItem(item)));
             }
         } else {
             System.out.println("Controller: No startup launchers found to display.");
@@ -241,7 +248,6 @@ public class Controller implements Initializable {
         StartupLaunchersTreeView.setRoot(startupRoot);
     }
 
-    // --- Method to restore the full list of launchers (already existing) ---
     private void restoreAllLaunchers() {
         TreeItem<LauncherItem> rootItem = new TreeItem<>(new LauncherItem("InvisibleRoot"));
         for (LauncherItem item : allOriginalTopLevelLaunchers) {
@@ -249,16 +255,14 @@ public class Controller implements Initializable {
         }
         AllLaunchersTreeView.setRoot(rootItem);
         rootItem.setExpanded(true);
-        // Also refresh the startup launchers tree when all launchers are restored
         setupStartupLaunchersTree();
     }
 
-    // --- Search Feature Methods (existing logic, no change needed) ---
     @FXML
     public void searchLaunchers(ActionEvent event) {
         String searchText = searchBox.getText().trim();
         if (searchText.isEmpty()) {
-            restoreAllLaunchers(); // If search box is empty, show all
+            restoreAllLaunchers();
             return;
         }
 
@@ -266,7 +270,6 @@ public class Controller implements Initializable {
         List<LauncherItem> matchedItems = findMatchingLaunchers(searchText, allOriginalTopLevelLaunchers);
 
         if (matchedItems.isEmpty()) {
-            // If no matches, show an empty tree
             showAlert(AlertType.INFORMATION, "No Results", "No launchers found matching '" + searchText + "'.");
         } else {
             for (LauncherItem item : matchedItems) {
@@ -288,20 +291,20 @@ public class Controller implements Initializable {
             if (item.isFolder()) {
                 List<LauncherItem> matchedChildren = findMatchingLaunchers(searchText, item.getChildren());
                 if (selfMatches || !matchedChildren.isEmpty()) {
-                    // Create a copy of the folder. Only include matching children.
-                    LauncherItem folderCopy = new LauncherItem(item.getName());
-                    // NEW: Ensure isStartupLauncher property is copied for folders
-                    folderCopy.setStartupLauncher(item.isStartupLauncher());
+                    LauncherItem folderCopy = new LauncherItem(item.getName(), null, item.isStartupLauncher());
                     if (!matchedChildren.isEmpty()) {
                         for (LauncherItem child : matchedChildren) {
                             folderCopy.addChild(child);
                         }
                     }
-                    matched.add(folderCopy);
+                    if(selfMatches && !matched.contains(folderCopy)) {
+                        matched.add(folderCopy);
+                    } else if (!matchedChildren.isEmpty() && !matched.contains(folderCopy)) {
+                        matched.add(folderCopy);
+                    }
                 }
             } else {
                 if (selfMatches) {
-                    // NEW: Ensure isStartupLauncher property is copied for items
                     matched.add(new LauncherItem(item.getName(), item.getUrlOrPath(), item.isStartupLauncher()));
                 }
             }
@@ -325,30 +328,13 @@ public class Controller implements Initializable {
 
         LauncherItem originalValue = original.getValue();
         LauncherItem copiedValue;
-        // NEW: Use the constructor that takes isStartupLauncher
         if (originalValue.isFolder()) {
             copiedValue = new LauncherItem(originalValue.getName(), null, originalValue.isStartupLauncher());
         } else {
             copiedValue = new LauncherItem(originalValue.getName(), originalValue.getUrlOrPath(), originalValue.isStartupLauncher());
         }
 
-
-        ImageView iconView = null;
-        if (copiedValue.isFolder()) {
-            if (folderIcon != null) {
-                iconView = new ImageView(folderIcon);
-            }
-        } else {
-            if (fileIcon != null) {
-                iconView = new ImageView(fileIcon);
-            } else if (folderIcon != null) {
-                iconView = new ImageView(folderIcon);
-            }
-        }
-        if (iconView != null) {
-            iconView.setFitWidth(24);
-            iconView.setFitHeight(20);
-        }
+        ImageView iconView = getIconForLauncherItem(copiedValue);
 
         TreeItem<LauncherItem> copiedTreeItem = new TreeItem<>(copiedValue, iconView);
         copiedTreeItem.setExpanded(original.isExpanded());
@@ -360,14 +346,10 @@ public class Controller implements Initializable {
         return copiedTreeItem;
     }
 
-    // --- End of Search Feature Methods ---
 
-
-    // --- Save Method (updated for startup launchers) ---
     public void saveLaunchers() {
         System.out.println("Controller: saveLaunchers() called.");
 
-        // IMPORTANT: Always save the 'allOriginalTopLevelLaunchers' as it's the master list.
         if (allOriginalTopLevelLaunchers.isEmpty()) {
             dataService.deleteDataFile();
             System.out.println("Controller: No launchers to save. Data file handled by service.");
@@ -384,12 +366,10 @@ public class Controller implements Initializable {
         }
     }
 
-    // Helper to convert TreeItem hierarchy to serializable LauncherItem hierarchy
     private LauncherItem convertTreeItemToLauncherItem(TreeItem<LauncherItem> treeItem) {
         LauncherItem launcherItem = treeItem.getValue();
         LauncherItem serializableItem;
 
-        // NEW: Use the constructor that preserves isStartupLauncher
         if (launcherItem.isFolder()) {
             serializableItem = new LauncherItem(launcherItem.getName(), null, launcherItem.isStartupLauncher());
         } else {
@@ -404,37 +384,10 @@ public class Controller implements Initializable {
         return serializableItem;
     }
 
-    // Helper to convert serializable LauncherItem hierarchy back to TreeItem hierarchy
     private TreeItem<LauncherItem> convertLauncherItemToTreeItem(LauncherItem launcherItem) {
-        ImageView iconView = null;
-        // NEW: Apply a distinct icon for startup launchers if desired, otherwise use regular icons
-        if (launcherItem.isStartupLauncher()) {
-            // You could add a specific startup icon here if you have one
-            // For now, let's just make it slightly different or add a marker
-            if (fileIcon != null) { // Or a specific 'startup' icon
-                iconView = new ImageView(fileIcon); // Using file icon as a default for now
-            } else if (folderIcon != null) {
-                iconView = new ImageView(folderIcon);
-            }
-        } else if (launcherItem.isFolder()) {
-            if (folderIcon != null) {
-                iconView = new ImageView(folderIcon);
-            }
-        } else { // It's a file/shortcut
-            if (fileIcon != null) {
-                iconView = new ImageView(fileIcon);
-            } else if (folderIcon != null) { // Fallback if no specific file icon
-                iconView = new ImageView(folderIcon);
-            }
-        }
-
-        if (iconView != null) {
-            iconView.setFitWidth(24);
-            iconView.setFitHeight(20);
-        }
-
+        ImageView iconView = getIconForLauncherItem(launcherItem);
         TreeItem<LauncherItem> treeItem = new TreeItem<>(launcherItem, iconView);
-        treeItem.setExpanded(true); // Keep folders expanded by default on load
+        treeItem.setExpanded(true);
 
         if (launcherItem.isFolder()) {
             for (LauncherItem childItem : launcherItem.getChildren()) {
@@ -444,8 +397,29 @@ public class Controller implements Initializable {
         return treeItem;
     }
 
+    private ImageView getIconForLauncherItem(LauncherItem item) {
+        Image imageToUse = null;
 
-    // --- End of Save and Load Methods ---
+        if (item.isStartupLauncher() && startupIcon != null) {
+            imageToUse = startupIcon;
+        } else if (item.isFolder()) {
+            imageToUse = folderIcon;
+        } else {
+            imageToUse = fileIcon;
+        }
+
+        if (imageToUse == null) {
+            System.err.println("CRITICAL: No suitable icon found for item: " + item.getName() + ". Using folderIcon as last resort.");
+            imageToUse = folderIcon;
+        }
+
+        ImageView iconView = new ImageView(imageToUse);
+        iconView.setFitWidth(24);
+        iconView.setFitHeight(20);
+
+        return iconView;
+    }
+
 
     private void createAddOptionsPopup() {
         addOptionsPopup = new Popup();
@@ -462,7 +436,7 @@ public class Controller implements Initializable {
         addStartupLauncherBtn.getStyleClass().add("popup-button");
         addStartupLauncherBtn.setOnAction(e -> {
             addOptionsPopup.hide();
-            showAddStartupLauncherDialog(); // NEW: Call method for adding startup launcher
+            showAddExistingLauncherToStartupDialog();
         });
 
         addOptionsPopupContent = new VBox(5, createNewLauncherBtn, addStartupLauncherBtn);
@@ -471,7 +445,6 @@ public class Controller implements Initializable {
         addOptionsPopup.getContent().add(addOptionsPopupContent);
 
         addOptionsPopupContent.applyCss();
-        addOptionsPopupContent.layout();
     }
 
     @FXML
@@ -487,7 +460,7 @@ public class Controller implements Initializable {
         }
 
         Point2D screenCoords = addButton.localToScreen(addButton.getBoundsInLocal().getMinX(), addButton.getBoundsInLocal().getMinY());
-        double x = screenCoords.getX() - 140; // Adjust for popup width
+        double x = screenCoords.getX() - 140;
         double y = screenCoords.getY();
         Window window = addButton.getScene().getWindow();
 
@@ -500,76 +473,74 @@ public class Controller implements Initializable {
         addOptionsPopup.show(window, x, y - popupHeight - margin);
     }
 
-    // --- NEW: Method to show dialog for adding Startup Launcher ---
-    private void showAddStartupLauncherDialog() {
+    private void showAddExistingLauncherToStartupDialog() {
+        List<LauncherItem> topLevelLaunchersToAdd = allOriginalTopLevelLaunchers.stream()
+                .filter(item -> !item.isStartupLauncher())
+                .collect(Collectors.toList());
+
+        if (topLevelLaunchersToAdd.isEmpty()) {
+            if (allOriginalTopLevelLaunchers.isEmpty()) {
+                showAlert(AlertType.INFORMATION, "No Launchers Available",
+                          "You need to create some launchers (Folder, URL, or Shortcut) first before adding them to startup.");
+            } else {
+                showAlert(AlertType.INFORMATION, "No New Launchers Available",
+                          "All existing top-level launchers are already added to startup.");
+            }
+            return;
+        }
+
         javafx.stage.Stage dialogStage = new javafx.stage.Stage();
         dialogStage.initModality(Modality.APPLICATION_MODAL);
         dialogStage.initOwner(AllLaunchersTreeView.getScene().getWindow());
-        dialogStage.setTitle("Add Startup Launcher");
+        dialogStage.setTitle("Select Launcher for Startup");
         dialogStage.setResizable(false);
 
-        TextField nameField = new TextField();
-        nameField.setPromptText("Enter display name");
-        nameField.getStyleClass().add("text-field-dark");
+        ListView<LauncherItem> launcherListView = new ListView<>();
+        launcherListView.getItems().addAll(topLevelLaunchersToAdd);
+        launcherListView.setPrefHeight(200);
+        launcherListView.setCellFactory(lv -> new ListCell<LauncherItem>() {
+            @Override
+            protected void updateItem(LauncherItem item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item.getName() + (item != null && item.isFolder() ? " (Folder)" : ""));
+                setGraphic(item != null && !empty ? getIconForLauncherItem(item) : null);
+            }
+        });
 
-        TextField pathField = new TextField();
-        pathField.setPromptText("Enter path (e.g., 'C:\\Program Files\\App\\App.exe')");
-        pathField.getStyleClass().add("text-field-dark");
 
-        Button addBtn = new Button("Add");
-        addBtn.getStyleClass().add("dialog-button");
-        addBtn.setOnAction(e -> {
-            String name = nameField.getText().trim();
-            String path = pathField.getText().trim();
-            if (!name.isEmpty() && !path.isEmpty()) {
-                // Check if a launcher with this path already exists as a startup launcher
-                if (allOriginalStartupLaunchers.stream().anyMatch(item -> !item.isFolder() && item.getUrlOrPath().equalsIgnoreCase(path))) {
-                    showAlert(AlertType.WARNING, "Duplicate", "This path is already registered as a startup launcher.");
-                    return;
-                }
-
-                // NEW: Create a startup launcher item
-                LauncherItem newStartupLauncher = new LauncherItem(name, path, true);
-
-                // Add to the master list (top-level) and the startup list
-                allOriginalTopLevelLaunchers.add(newStartupLauncher);
-                allOriginalStartupLaunchers.add(newStartupLauncher);
-
-                // Add to the UI TreeView (All Launchers)
-                TreeItem<LauncherItem> rootItem = AllLaunchersTreeView.getRoot();
-                if (rootItem != null) {
-                    addLauncherItemToFolder(rootItem, newStartupLauncher); // Add to the main tree view
-                }
-
-                // Refresh the Startup Launchers TreeView
-                setupStartupLaunchersTree();
-
-                // ONE-TIME PERMISSION LOGIC
-                // Check if the app is already registered for startup. If not, ask permission.
-                if (!startupManager.isAppRegisteredForStartup()) {
-                    System.out.println("App not registered for startup. Asking user permission...");
-                    if (startupManager.askUserForStartupPermission()) {
-                        String appExecutablePath = getJarPath(); // Get path to the running JAR/EXE
-                        if (appExecutablePath != null) {
-                            if (startupManager.registerAppForStartup(appExecutablePath)) {
-                                showAlert(AlertType.INFORMATION, "Startup Enabled", "NexLaunch will now start automatically with your computer.");
-                            } else {
-                                showAlert(AlertType.ERROR, "Startup Failed", "Failed to enable automatic startup for NexLaunch. Please try again or check permissions.");
-                            }
-                        } else {
-                            showAlert(AlertType.ERROR, "Error", "Could not determine application path for startup registration.");
-                        }
-                    } else {
-                        showAlert(AlertType.INFORMATION, "Startup Not Enabled", "Automatic startup for NexLaunch was not enabled. You can enable it later from settings.");
+        Button addSelectedBtn = new Button("Add Selected to Startup");
+        addSelectedBtn.getStyleClass().add("dialog-button");
+        addSelectedBtn.setOnAction(e -> {
+            LauncherItem selectedItem = launcherListView.getSelectionModel().getSelectedItem();
+            if (selectedItem != null) {
+                LauncherItem itemInMasterList = null;
+                for (LauncherItem item : allOriginalTopLevelLaunchers) {
+                    if (item == selectedItem) {
+                        itemInMasterList = item;
+                        break;
                     }
-                } else {
-                    System.out.println("App already registered for startup. No need to ask permission again.");
                 }
 
-                dialogStage.close();
-                saveLaunchers(); // Save changes
+                if (itemInMasterList != null) {
+                    itemInMasterList.setStartupLauncher(true);
+                    
+                    if (!allOriginalStartupLaunchers.contains(itemInMasterList)) {
+                        allOriginalStartupLaunchers.add(itemInMasterList);
+                    }
+                    
+                    setupStartupLaunchersTree();
+                    saveLaunchers();
+
+                    // Removed: All OS-level startup registration logic from here.
+                    // The app no longer registers itself to start with the OS via this action.
+
+                    showAlert(AlertType.INFORMATION, "Added to Startup", "'" + selectedItem.getName() + "' has been added to startup launchers.");
+                    dialogStage.close();
+                } else {
+                    showAlert(AlertType.ERROR, "Error", "Selected launcher not found in master list. Please try again.");
+                }
             } else {
-                showAlert(AlertType.WARNING, "Input Error", "Both display name and path cannot be empty.");
+                showAlert(AlertType.WARNING, "Selection Required", "Please select a launcher from the list.");
             }
         });
 
@@ -577,14 +548,12 @@ public class Controller implements Initializable {
         cancelBtn.getStyleClass().add("dialog-button");
         cancelBtn.setOnAction(e -> dialogStage.close());
 
-        HBox buttonBar = new HBox(10, addBtn, cancelBtn);
+        HBox buttonBar = new HBox(10, addSelectedBtn, cancelBtn);
         buttonBar.setAlignment(Pos.CENTER_RIGHT);
 
         VBox dialogContent = new VBox(10,
-                new Label("Display Name:"),
-                nameField,
-                new Label("Path to Executable/File (for Startup Launcher):"),
-                pathField,
+                new Label("Select a top-level launcher (folder or item) to add to startup:"),
+                launcherListView,
                 buttonBar);
         dialogContent.setPadding(new javafx.geometry.Insets(20));
         dialogContent.getStyleClass().add("dialog-background");
@@ -612,10 +581,22 @@ public class Controller implements Initializable {
         createBtn.setOnAction(e -> {
             String folderName = folderNameField.getText().trim();
             if (!folderName.isEmpty()) {
-                // Create a regular folder (isStartupLauncher defaults to false)
+                boolean exists = allOriginalTopLevelLaunchers.stream()
+                                   .anyMatch(li -> li.isFolder() && li.getName().equalsIgnoreCase(folderName));
+                if (exists) {
+                    showAlert(AlertType.WARNING, "Duplicate Name", "A top-level folder with this name already exists. Please choose a different name.");
+                    return;
+                }
+
                 LauncherItem newFolder = new LauncherItem(folderName);
-                addLauncherItemToFolder(AllLaunchersTreeView.getRoot(), newFolder); // Add to current view
-                allOriginalTopLevelLaunchers.add(newFolder); // Add to master list
+                allOriginalTopLevelLaunchers.add(newFolder);
+                TreeItem<LauncherItem> rootItem = AllLaunchersTreeView.getRoot();
+                if (rootItem != null) {
+                    addLauncherItemToTreeView(rootItem, newFolder);
+                } else {
+                    System.err.println("Error: AllLaunchersTreeView root is null. Cannot add new folder.");
+                }
+                saveLaunchers();
                 dialogStage.close();
             } else {
                 showAlert(AlertType.WARNING, "Input Error", "Folder name cannot be empty.");
@@ -665,14 +646,24 @@ public class Controller implements Initializable {
             String name = nameField.getText().trim();
             String url = urlField.getText().trim();
             if (!name.isEmpty() && !url.isEmpty()) {
-                // Create a regular URL item (isStartupLauncher defaults to false)
                 LauncherItem newUrl = new LauncherItem(name, url);
-                addLauncherItemToFolder(parentFolder, newUrl); // Add to current view
-
-                LauncherItem originalParent = findLauncherItemInList(parentFolder.getValue().getName(), allOriginalTopLevelLaunchers);
+                
+                LauncherItem originalParent = findLauncherItemInList(parentFolder.getValue().getName(), true, allOriginalTopLevelLaunchers);
                 if (originalParent != null && originalParent.isFolder()) {
+                    boolean exists = originalParent.getChildren().stream()
+                                       .anyMatch(li -> li.getName().equalsIgnoreCase(name) || (!li.isFolder() && li.getUrlOrPath().equalsIgnoreCase(url)));
+                    if (exists) {
+                        showAlert(AlertType.WARNING, "Duplicate Item", "An item with this name or URL already exists in this folder. Please choose a different name or URL.");
+                        return;
+                    }
                     originalParent.addChild(newUrl);
+                } else {
+                    System.err.println("Error: Original parent folder not found in master list.");
+                    showAlert(AlertType.ERROR, "Add Error", "Could not find the parent folder to add the URL.");
+                    return;
                 }
+
+                addLauncherItemToTreeView(parentFolder, newUrl);
                 dialogStage.close();
                 saveLaunchers();
             } else {
@@ -728,14 +719,24 @@ public class Controller implements Initializable {
             String name = nameField.getText().trim();
             String path = pathField.getText().trim();
             if (!name.isEmpty() && !path.isEmpty()) {
-                // Create a regular shortcut (isStartupLauncher defaults to false)
                 LauncherItem newShortcut = new LauncherItem(name, path);
-                addLauncherItemToFolder(parentFolder, newShortcut); // Add to current view
 
-                LauncherItem originalParent = findLauncherItemInList(parentFolder.getValue().getName(), allOriginalTopLevelLaunchers);
+                LauncherItem originalParent = findLauncherItemInList(parentFolder.getValue().getName(), true, allOriginalTopLevelLaunchers);
                 if (originalParent != null && originalParent.isFolder()) {
+                    boolean exists = originalParent.getChildren().stream()
+                                       .anyMatch(li -> li.getName().equalsIgnoreCase(name) || (!li.isFolder() && li.getUrlOrPath().equalsIgnoreCase(path)));
+                    if (exists) {
+                        showAlert(AlertType.WARNING, "Duplicate Item", "An item with this name or path already exists in this folder. Please choose a different name or path.");
+                        return;
+                    }
                     originalParent.addChild(newShortcut);
+                } else {
+                    System.err.println("Error: Original parent folder not found in master list.");
+                    showAlert(AlertType.ERROR, "Add Error", "Could not find the parent folder to add the shortcut.");
+                    return;
                 }
+
+                addLauncherItemToTreeView(parentFolder, newShortcut);
                 dialogStage.close();
                 saveLaunchers();
             } else {
@@ -765,51 +766,15 @@ public class Controller implements Initializable {
         dialogStage.showAndWait();
     }
 
-    // --- Helper to find a LauncherItem by name in a list (for adding/deleting) ---
-    private LauncherItem findLauncherItemInList(String name, List<LauncherItem> items) {
-        for (LauncherItem item : items) {
-            if (item.getName().equals(name)) {
-                return item;
-            }
-            if (item.isFolder()) {
-                LauncherItem found = findLauncherItemInList(name, item.getChildren());
-                if (found != null) {
-                    return found;
-                }
-            }
-        }
-        return null;
-    }
-
-
-    private void addLauncherItemToFolder(TreeItem<LauncherItem> parentFolder, LauncherItem newLauncherItem) {
-        ImageView iconView = null;
-        if (newLauncherItem.isFolder() && folderIcon != null) {
-            iconView = new ImageView(folderIcon);
-        } else if (!newLauncherItem.isFolder() && fileIcon != null) {
-            iconView = new ImageView(fileIcon);
-        } else if (folderIcon != null) { // Fallback if fileIcon is null
-            iconView = new ImageView(folderIcon);
-        }
-
-        if (iconView != null) {
-            iconView.setFitWidth(24);
-            iconView.setFitHeight(20);
-        }
-
+    private void addLauncherItemToTreeView(TreeItem<LauncherItem> parentTreeItem, LauncherItem newLauncherItem) {
+        ImageView iconView = getIconForLauncherItem(newLauncherItem);
         TreeItem<LauncherItem> newTreeItem = new TreeItem<>(newLauncherItem, iconView);
-
-        parentFolder.getChildren().add(newTreeItem);
-        parentFolder.setExpanded(true);
-        showAlert(AlertType.INFORMATION, "Item Added", "'" + newLauncherItem.getName() + "' added to '" + parentFolder.getValue().getName() + "'!");
-        // saveLaunchers() is called by the dialogs now. Removed from here to avoid double save.
+        parentTreeItem.getChildren().add(newTreeItem);
+        parentTreeItem.setExpanded(true);
+        showAlert(AlertType.INFORMATION, "Item Added", "'" + newLauncherItem.getName() + "' added to '" + parentTreeItem.getValue().getName() + "'!");
     }
 
-    /**
-     * Deletes a specified TreeItem (and its corresponding LauncherItem) from the TreeView.
-     * If the item is a folder, it will delete all its contents as well.
-     * @param itemToDelete The TreeItem to be deleted.
-     */
+
     public void deleteLauncherItem(TreeItem<LauncherItem> itemToDelete) {
         if (itemToDelete == null || itemToDelete.getParent() == null) {
             showAlert(AlertType.ERROR, "Deletion Error", "Cannot delete the root or a null item.");
@@ -828,29 +793,55 @@ public class Controller implements Initializable {
 
         Optional<ButtonType> result = confirmAlert.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
-            TreeItem<LauncherItem> parent = itemToDelete.getParent();
-            parent.getChildren().remove(itemToDelete);
-
-            // --- Remove from the allOriginalTopLevelLaunchers as well ---
             LauncherItem itemToRemove = itemToDelete.getValue();
-            if (parent.getValue().getName().equals("InvisibleRoot")) { // It's a top-level item
-                allOriginalTopLevelLaunchers.remove(itemToRemove);
-            } else { // It's a child item, find its parent in the original list and remove
-                LauncherItem originalParent = findLauncherItemInList(parent.getValue().getName(), allOriginalTopLevelLaunchers);
-                if (originalParent != null && originalParent.isFolder()) {
-                    originalParent.getChildren().remove(itemToRemove);
+            TreeItem<LauncherItem> parentTreeItem = itemToDelete.getParent();
+
+            // Remove from the UI TreeView
+            parentTreeItem.getChildren().remove(itemToDelete);
+
+            // Remove from the master data list (allOriginalTopLevelLaunchers)
+            if (parentTreeItem.getValue().getName().equals("InvisibleRoot")) {
+                allOriginalTopLevelLaunchers.removeIf(item -> item == itemToRemove);
+            } else {
+                LauncherItem originalParentLauncherItem = findLauncherItemInList(parentTreeItem.getValue().getName(), true, allOriginalTopLevelLaunchers);
+                if (originalParentLauncherItem != null && originalParentLauncherItem.isFolder()) {
+                    originalParentLauncherItem.getChildren().removeIf(child -> child == itemToRemove);
+                } else {
+                    System.err.println("Error: Could not find original parent launcher item for deletion.");
                 }
             }
 
-            // NEW: If the deleted item was a startup launcher, remove it from that list too
             if (itemToRemove.isStartupLauncher()) {
-                allOriginalStartupLaunchers.remove(itemToRemove);
-                setupStartupLaunchersTree(); // Refresh startup tree view
+                allOriginalStartupLaunchers.removeIf(startupItem -> startupItem == itemToRemove);
+                setupStartupLaunchersTree();
+                // Removed: startupManager.unregisterAppFromStartup() logic here.
             }
 
             showAlert(AlertType.INFORMATION, "Deleted", "'" + itemToDelete.getValue().getName() + "' has been deleted.");
             saveLaunchers();
         }
+    }
+
+    private LauncherItem findLauncherItemInList(String identifier, boolean isFolder, List<LauncherItem> items) {
+        if (items == null) return null;
+        for (LauncherItem item : items) {
+            if (isFolder) {
+                if (item.isFolder() && item.getName().equals(identifier)) {
+                    return item;
+                }
+            } else {
+                if (!item.isFolder() && item.getUrlOrPath() != null && item.getUrlOrPath().equals(identifier)) {
+                    return item;
+                }
+            }
+            if (item.isFolder() && item.getChildren() != null) {
+                LauncherItem found = findLauncherItemInList(identifier, isFolder, item.getChildren());
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
 
@@ -871,7 +862,6 @@ public class Controller implements Initializable {
         }
     }
 
-    // NEW: Method to launch a path or URL
     public void launchItemPath(String pathOrUrl) {
         if (pathOrUrl == null || pathOrUrl.trim().isEmpty()) {
             System.err.println("Launch failed: Path or URL is empty.");
@@ -880,10 +870,8 @@ public class Controller implements Initializable {
 
         try {
             if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
-                // It's a URL
                 Desktop.getDesktop().browse(new URI(pathOrUrl));
             } else {
-                // Assume it's a file path
                 File file = new File(pathOrUrl);
                 if (file.exists()) {
                     Desktop.getDesktop().open(file);
@@ -899,38 +887,7 @@ public class Controller implements Initializable {
         }
     }
 
-    // NEW: Helper to get the path of the running JAR/Executable
-    private String getJarPath() {
-        try {
-            // Get the path of the currently executing JAR file
-            String path = Controller.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
-            // Decode spaces and other URL encoded characters
-            String decodedPath = java.net.URLDecoder.decode(path, "UTF-8");
-
-            // Handle running from JAR directly or from an unpacked folder
-            File file = new File(decodedPath);
-            if (file.isDirectory() && file.getName().endsWith(".jar")) { // If it's a JAR, the path should be to the JAR
-                // This case handles running "java -jar myapp.jar", where path is like "/path/to/myapp.jar"
-                return file.getAbsolutePath();
-            } else if (file.isFile() && decodedPath.endsWith(".jar")) { // If it's a JAR directly
-                return file.getAbsolutePath();
-            } else if (System.getProperty("os.name").toLowerCase().contains("win") && decodedPath.endsWith(".exe")) {
-                // If on Windows and it's an EXE (e.g., from a native打包)
-                return file.getAbsolutePath();
-            } else {
-                // This covers cases where it might be running from IDE or other unpacked forms
-                // Attempt to find the executable within the current working directory, or prompt user
-                System.out.println("Could not determine direct executable path. Current path: " + decodedPath);
-                // For a proper deployed application, this should point to your .exe or .jar
-                // You might need to provide specific build instructions for native executables
-                showAlert(AlertType.WARNING, "Application Path", "Could not automatically determine application executable path for startup. Please ensure your application is properly packaged (e.g., as a .exe or .jar) for this feature to work reliably, or configure it manually.");
-                return null;
-            }
-        } catch (URISyntaxException | IOException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
+    // Removed: private String getJarPath() { ... } // No longer needed
 
 
     private class CustomStringTreeCell extends TreeCell<LauncherItem> {
@@ -961,7 +918,7 @@ public class Controller implements Initializable {
                     if (treeItem.getValue().isFolder()) {
                         Alert confirmAlert = new Alert(AlertType.CONFIRMATION);
                         confirmAlert.setTitle("Launch All Items in Folder");
-                        confirmAlert.setHeaderText("Launch all items in '" + treeItem.getValue().getName() + "'?");
+                        confirmAlert.setHeaderText("Are you sure you want to launch all items in '" + treeItem.getValue().getName() + "'?");
                         confirmAlert.setContentText("This will attempt to open " + treeItem.getChildren().size() + " links/shortcuts.");
                         confirmAlert.getDialogPane().getStylesheets().add(getClass().getResource("application.css").toExternalForm());
                         confirmAlert.getDialogPane().getStyleClass().add("alert-dialog");
@@ -969,19 +926,13 @@ public class Controller implements Initializable {
                         Optional<ButtonType> result = confirmAlert.showAndWait();
                         if (result.isPresent() && result.get() == ButtonType.OK) {
                             for (TreeItem<LauncherItem> childItem : treeItem.getChildren()) {
-                                String pathOrUrl = childItem.getValue().getUrlOrPath();
-                                if (pathOrUrl != null && !pathOrUrl.trim().isEmpty()) {
-                                    System.out.println("Launching child: " + childItem.getValue().getName() + " (" + pathOrUrl + ")");
-                                    controller.launchItemPath(pathOrUrl); // Use the new common launch method
-                                } else {
-                                    System.out.println("Skipping child with no launch path/URL: " + childItem.getValue().getName());
-                                }
+                                launchRecursive(childItem.getValue());
                             }
                         }
-                    } else { // It's a single item (URL or Shortcut)
+                    } else {
                         String pathOrUrl = treeItem.getValue().getUrlOrPath();
                         System.out.println("Launching single item: " + treeItem.getValue().getName() + " (" + pathOrUrl + ")");
-                        controller.launchItemPath(pathOrUrl); // Use the new common launch method
+                        controller.launchItemPath(pathOrUrl);
                     }
                 }
             });
@@ -1003,13 +954,12 @@ public class Controller implements Initializable {
 
             contentWrapper = new HBox(5, itemIconView, itemTextLabel, spacer, actionButtonsBox);
             contentWrapper.setAlignment(Pos.CENTER_LEFT);
-            contentWrapper.setPadding(new javafx.geometry.Insets(5, 0, 5, 0)); // Add padding
+            contentWrapper.setPadding(new javafx.geometry.Insets(5, 0, 5, 0));
 
             createContextMenus();
         }
 
         private void createContextMenus() {
-            // Context menu for folders
             folderContextMenu = new ContextMenu();
             MenuItem addUrlToFolder = new MenuItem("Add URL");
             addUrlToFolder.setOnAction(e -> {
@@ -1027,32 +977,63 @@ public class Controller implements Initializable {
             });
             MenuItem deleteFolder = new MenuItem("Delete Folder");
             deleteFolder.setOnAction(e -> controller.deleteLauncherItem(getTreeItem()));
-            folderContextMenu.getItems().addAll(addUrlToFolder, addShortcutToFolder, deleteFolder);
+
+            MenuItem toggleFolderStartup = new MenuItem();
+            toggleFolderStartup.setOnAction(e -> {
+                TreeItem<LauncherItem> selectedItem = getTreeItem();
+                if (selectedItem != null && selectedItem.getValue().isFolder()) {
+                    boolean currentStatus = selectedItem.getValue().isStartupLauncher();
+                    selectedItem.getValue().setStartupLauncher(!currentStatus);
+
+                    controller.allOriginalStartupLaunchers.clear();
+                    for (LauncherItem item : controller.allOriginalTopLevelLaunchers) {
+                        if (item.isStartupLauncher()) {
+                            controller.allOriginalStartupLaunchers.add(item);
+                        }
+                    }
+
+                    controller.saveLaunchers();
+                    controller.setupStartupLaunchersTree();
+
+                    String action = currentStatus ? "removed from" : "added to";
+                    controller.showAlert(AlertType.INFORMATION, "Startup Launcher Updated",
+                                         "Folder '" + selectedItem.getValue().getName() + "' has been " + action + " startup launchers.");
+                    // Removed: OS-level startup registration logic from here.
+                }
+            });
+            folderContextMenu.getItems().addAll(addUrlToFolder, addShortcutToFolder, deleteFolder, toggleFolderStartup);
 
 
-            // Context menu for leaf nodes (URLs/Shortcuts)
             leafContextMenu = new ContextMenu();
             MenuItem deleteItem = new MenuItem("Delete Item");
             deleteItem.setOnAction(e -> controller.deleteLauncherItem(getTreeItem()));
 
-            // NEW: Add "Make/Unmake Startup Launcher" option
-            MenuItem toggleStartup = new MenuItem();
-            toggleStartup.setOnAction(e -> {
+            MenuItem toggleLeafStartup = new MenuItem();
+            toggleLeafStartup.setOnAction(e -> {
                 TreeItem<LauncherItem> selectedItem = getTreeItem();
-                if (selectedItem != null && !selectedItem.getValue().isFolder()) { // Only for non-folder items
+                if (selectedItem != null && !selectedItem.getValue().isFolder()) {
                     boolean currentStatus = selectedItem.getValue().isStartupLauncher();
-                    selectedItem.getValue().setStartupLauncher(!currentStatus); // Toggle status
-                    controller.saveLaunchers(); // Save the updated status
-                    controller.loadLaunchers(); // Reload to refresh both tree views
+                    selectedItem.getValue().setStartupLauncher(!currentStatus);
+
+                    controller.allOriginalStartupLaunchers.clear();
+                    for (LauncherItem item : controller.allOriginalTopLevelLaunchers) {
+                        if (item.isStartupLauncher()) {
+                            controller.allOriginalStartupLaunchers.add(item);
+                        }
+                    }
+
+                    controller.saveLaunchers();
+                    controller.setupStartupLaunchersTree();
+
                     String action = currentStatus ? "removed from" : "added to";
                     controller.showAlert(AlertType.INFORMATION, "Startup Launcher Updated",
                                          "'" + selectedItem.getValue().getName() + "' has been " + action + " startup launchers.");
+                    // Removed: OS-level startup registration logic from here.
                 }
             });
-            leafContextMenu.getItems().addAll(deleteItem, toggleStartup);
+            leafContextMenu.getItems().addAll(deleteItem, toggleLeafStartup);
 
 
-            // Set context menu based on item type
             this.setOnContextMenuRequested(event -> {
                 if (isEmpty() || getItem() == null) {
                     folderContextMenu.hide();
@@ -1060,19 +1041,22 @@ public class Controller implements Initializable {
                     return;
                 }
                 if (getTreeItem().getValue().isFolder()) {
+                    if (getTreeItem().getValue().isStartupLauncher()) {
+                        toggleFolderStartup.setText("Remove from Startup");
+                    } else {
+                        toggleFolderStartup.setText("Add to Startup");
+                    }
                     folderContextMenu.show(this, event.getScreenX(), event.getScreenY());
                 } else {
-                    // Before showing leaf context menu, update the text for toggleStartup
                     if (getTreeItem().getValue().isStartupLauncher()) {
-                        toggleStartup.setText("Remove from Startup");
+                        toggleLeafStartup.setText("Remove from Startup");
                     } else {
-                        toggleStartup.setText("Add to Startup");
+                        toggleLeafStartup.setText("Add to Startup");
                     }
                     leafContextMenu.show(this, event.getScreenX(), event.getScreenY());
                 }
             });
         }
-
 
         @Override
         protected void updateItem(LauncherItem item, boolean empty) {
@@ -1080,47 +1064,28 @@ public class Controller implements Initializable {
             if (empty || item == null) {
                 setGraphic(null);
                 setText(null);
-                setContextMenu(null); // Clear context menu
+                setContextMenu(null);
                 return;
             }
 
             itemTextLabel.setText(item.getName());
 
-            // Set appropriate icon
+            itemIconView.setImage(controller.getIconForLauncherItem(item).getImage());
+
             if (item.isFolder()) {
-                itemIconView.setImage(controller.folderIcon);
-                // Update arrow button icon based on expansion
-                if (getTreeItem().isExpanded()) {
+                if (getTreeItem().isExpanded() && controller.arrowUpIcon != null) {
                     customArrowButton.setGraphic(new ImageView(controller.arrowUpIcon));
-                } else {
+                } else if (!getTreeItem().isExpanded() && controller.arrowDownIcon != null) {
                     customArrowButton.setGraphic(new ImageView(controller.arrowDownIcon));
-                }
-                customArrowButton.setVisible(true); // Show arrow for folders
-                launchButton.setVisible(true); // Always show launch button for folders (to launch all)
-
-            } else { // Leaf node (URL or Shortcut)
-                // NEW: Differentiate icon for startup launchers
-                if (item.isStartupLauncher()) {
-                    // You might want a specific icon for startup launchers, e.g., a lightning bolt
-                    // For now, let's use a standard file icon or add a small visual cue.
-                    // To show a special icon, you'd load it here: new ImageView(new Image("path/to/startupicon.png"));
-                    if (controller.fileIcon != null) {
-                        itemIconView.setImage(controller.fileIcon); // Placeholder
-                    } else {
-                        itemIconView.setImage(controller.folderIcon); // Fallback
-                    }
-                    // Optional: Add a visual cue like a small overlay icon
-                    // You'd need to layer image views or use a custom node for graphic
                 } else {
-                    if (controller.fileIcon != null) {
-                        itemIconView.setImage(controller.fileIcon);
-                    } else {
-                        itemIconView.setImage(controller.folderIcon); // Fallback
-                    }
+                    customArrowButton.setGraphic(null);
                 }
+                customArrowButton.setVisible(true);
+                launchButton.setVisible(true);
 
-                customArrowButton.setVisible(false); // Hide arrow for leaf nodes
-                launchButton.setVisible(true); // Show launch button for individual items
+            } else {
+                customArrowButton.setVisible(false);
+                launchButton.setVisible(true);
             }
 
             setGraphic(contentWrapper);
