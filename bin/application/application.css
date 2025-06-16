@@ -163,3 +163,15 @@
     -fx-background-color: #007acc; /* Blue highlight */
     -fx-text-fill: white;
 }
+#searchBox {
+    -fx-background-color: rgba(31, 31, 45, 1); /* Darker background */
+    -fx-text-fill: #e0e0e0;     /* Light text color */
+    -fx-prompt-text-fill: #808080; /* Color for placeholder text */
+    -fx-border-color: #555555;   /* Subtle border color */
+    -fx-border-width: 1px;
+    -fx-border-radius: 5px;      /* Slightly rounded corners */
+    -fx-padding: 7px 8px;      /* Padding inside the text field */
+
+    -fx-highlight-fill: #007acc; /* Color of selected text highlight */
+    -fx-highlight-text-fill: white; /* Color of text within highlight */
+}

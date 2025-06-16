@@ -25,11 +25,7 @@
                   <Font name="Albert Sans Regular" size="12.0" />
                </font>
                <graphic>
-                  <ImageView fitHeight="26.0" fitWidth="23.0" pickOnBounds="true" preserveRatio="true">
-                     <image>
-                        <Image url="@settingsicon.png" />
-                     </image>
-                  </ImageView>
+
                </graphic>
                <opaqueInsets>
                   <Insets />
@@ -55,7 +51,7 @@
 
                   <HBox layoutX="13.0" layoutY="55.0" prefHeight="30.0" prefWidth="546.0" spacing="10.0">
                      <children>
-                        <TextField fx:id="searchBox" HBox.hgrow="ALWAYS" promptText="Search launchers..." style="-fx-background-color: #2b2b3a; -fx-text-fill: #d8d8d8; -fx-prompt-text-fill: #808080; -fx-background-radius: 5;">
+                        <TextField fx:id="searchBox" HBox.hgrow="ALWAYS" promptText="Search launchers...">
                            <font>
                               <Font name="Albert Sans Regular" size="14.0" />
                            </font>
